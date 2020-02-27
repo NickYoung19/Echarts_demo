@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>自定义主题</title>
+</head>
+<body>
+    <!-- 1. 为ECharts准备一个具备大小（宽高）的Dom -->
+    <div id="main" style="width: 600px;height:400px;"></div>
+    <span>主题：</span>
+    <!-- 动态切换主题：创建主题点击事件，静态配置主题不需要此步骤 -->
+    <a href="javascript:void(0)" onclick="changeTheme('dark')">dark</a> |
+    <a href="javascript:void(0)" onclick="changeTheme('macarons')">macarons</a>
+    <!-- 2. 引入 echarts.js -->
+    <script src="js/echarts.js"></script>
+    <!-- 3. 引入主题JS文件 -->
+    <script src="theme/dark.js"></script>
+    <script src="theme/macarons.js"></script>
+    <script type="text/javascript">
+        // 基于准备好的dom，初始化echarts实例
+        var myChart = echarts.init(document.getElementById('main'));
+
+        // 准备图表展示数据
+        var data_name = ["周一","周二","周三","周四","周五","周六","周日"]
+        var data_num = [25, 16, 28, 18, 20, 38, 35]
+
+        // 指定图表的配置项和数据
+        var option = {
+            title: {
+                text: '某服装店羽绒服一周销售状况' // 图表标题
+            },
+            tooltip: {
+                formatter: '{b0}: {c0} 件'       // 配置鼠标触发提示框格式
+            },
+            legend: {
+                data:['销量']       // 图例
+            },
+            xAxis: {
+                data: data_name     // x轴数据
+            },
+            yAxis: {},              // y轴默认自动
+            series: [{
+                // 柱状图
+                type: 'bar',
+                data: data_num,
+                // 显示标签数量
+                label: {
+                    normal: {
+                        show: true,
+                        position: 'top'     // 显示位置
+                    }
+                },
+                //配置样式
+                itemStyle: {
+                    //通常情况下样式
+                    normal:{
+                        //每个柱子的颜色即为colorList数组里的每一项，如果柱子数目多于colorList的长度，则柱子颜色循环使用该数组
+                        color: function (params){
+                            var colorList = ['#8dc63f','#add8e6','#ffb6c1','#f37b1d','#A6A6D2','#F0E68C','#CA8EC2'];
+                            return colorList[params.dataIndex];
+                        }
+                    },
+                    //鼠标悬停时，显示强调效果
+                    emphasis: {
+                            shadowBlur: 10,
+                            shadowOffsetX: 0,
+                            shadowColor: 'rgba(0, 0, 0, 0.5)'
+                    }
+                },
+            },
+            // 折线图
+            {
+                name: '销量',
+                type: 'line',
+                data: data_num,
+                smooth: true
+            }],
+        };
+
+        // 使用刚指定的配置项和数据显示图表。
+        myChart.setOption(option);
+
+        // 鼠标点击主题名称，动态触发主题效果
+        function changeTheme(theme) {
+            var myChart = echarts.init(document.getElementById('main'), theme);
+            myChart.setOption(option, true);
+        }
+    </script>
+</body>
+</html>
