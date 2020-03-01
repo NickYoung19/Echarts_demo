@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <!-- 解决异步请求豆瓣图片链接Error 403，原因：豆瓣具有防盗链 -->
+    <meta name="referrer" content="never">
+    <title>豆瓣最新电影排名分析</title>
+    <!-- 1. 引入Echarts.js及相关JS -->
+    <script src="https://libs.cdnjs.net/jquery/3.4.1/jquery.js"></script>
+    <script src="js/echarts.js"></script>
+</head>
+<body>
+    <!-- 2. 为ECharts准备一个具备大小（宽高）的Dom -->
+    <div id="main" style="width: 900px;height:600px;"></div>
+    <script type="text/javascript">
+        // 3. 初始化echarts实例
+        var myChart = echarts.init(document.getElementById("main"));
+        // 4. 关于Echarts option的配置
+        myChart.showLoading();  // 显示loading加载动画
+        // setData方法：对myChart的option进行配置，并显示图表
+        var setData = (function(){
+            var option = {
+                title: {
+                    text: "最新上映电影",
+                    left: "50%",
+                    textAlign: 'center'
+                },
+                // grid组件：直角坐标系内绘图网格，用于定位图片区域的位置
+                grid: {
+                    left: 0,
+                    right: 20,
+                    bottom: 100,
+                    top: 30
+                },
+                // 鼠标触发提示信息格式
+                tooltip: {
+                    formatter: function(params) {
+                        // pictorialBar：判断触发组件类型为：picture图片
+                        if (params.componentSubType == "pictorialBar") {
+                            return "电影：" + params.name + "</br> 豆瓣评分：" + (params.value * 1 + 10).toFixed(1);
+                        }
+                    }
+                },
+                xAxis: {
+                    data: []
+                },
+                yAxis: {
+                    // 隐藏y轴显示
+                    splitLine: {
+                        show: false
+                    },
+                    axisLine: {
+                        show: false
+                    }
+                },
+                series: [
+                    // 线条相关配置
+                    {
+                        type: 'bar',
+                        barWidth: 1,
+                        data: [],
+                        // 特效配置
+                        animationDelay: function(ids) {     // 延时显示的动画效果，ids为条目的索引
+                            return ids * 100;
+                        }
+                    },
+                    // 图片相关配置
+                    {
+                        type: 'pictorialBar',
+                        symbolPosition: 'end',
+                        symbolRotate: 165,
+                        symbolOffset: ['20%', '100%'],      // 图片水平偏移角度
+                        data: [],                           // 根据api返回的pic_url动态填充图片
+                        animationDelay: function(ids) {    // 延时显示的动画效果，ids为条目的索引
+                            return ids * 100 + 500;
+                        }
+                    },
+                    // graph：关系图，用于展现节点以及节点之间的关系数据，这里形成一个节点按钮，实现排序操作
+                    {
+                        type: 'graph',
+                        data: [{
+                            X: 0,
+                            Y: 0,
+                            symbolSize: 0                   // 关系图节点标记的大小
+                        },{
+                            // 排序按钮的位置及大小
+                            name: '排序',
+                            x: 550,
+                            y: 25,
+                            symbolSize: 30
+                        }],
+                        // 节点的样式
+                        itemStyle: {
+                            normal: {
+                                // color: 'transparent',   // 透明效果
+                                color: '#282923',
+                                borderWidth: 1,
+                                borderColor: '#555'
+                            }
+                        }
+                    }
+                ]
+            };
+            var mark = 1;
+            // 填充数据
+            return function(){
+                var pics = [];
+                var d = JSON.parse(localStorage.getItem('data'));
+                for (var i = 0; i < d.subjects.length; i++) {
+                    // 说明：d.subjects[i].images.small = https://img3.doubanio.com/view/photo/s_ratio_poster/public/p2576090251.webp
+                    var img = d.subjects[i].images.medium;
+                    console.log(img)
+                    pics.push({
+                        value: ((d.subjects[i].rating.average || 0.1) - 10).toFixed(1),
+                        symbol: 'image://' + img,    // 用image：//标记online图片
+                        symbolSize: ['48.75', '75'],
+                        name: d.subjects[i].title,   // 电影的名称
+                        id: d.subjects[i].id         // 电影的id
+                    })
+                }
+                // 排序方法
+                if (mark % 2 == 0) {
+                    pics.sort(function(a, b) {
+                        return (mark / 2 | 0) % 2 == 0 ? (b.value - a.value) : (a.value - b.value)
+                    })
+                }
+                option.series[0].data = pics;
+                option.series[1].data = pics;
+                myChart.hideLoading();
+                // 使用上面指定的配置项和数据显示图表
+                myChart.setOption(option);
+                mark++;
+            }
+        })();   // 直接调用匿名函数，返回值是一个function赋值给变量setData
+        // localStorage作用：先从本地缓存中获取data，如果有数据就调用setData方法，否则从豆瓣api异步请获取数据
+        if (localStorage.getItem("data")) {
+            setData();
+        } else {
+            $.ajax({
+                type: "GET",
+                url: "https://douban.uieee.com/v2/movie/in_theaters",   // 正在热映的电影明细
+                dataType: "jsonp",      // jsonp解决跨域异步获取资源的跨域问题
+                success: function(d) {
+                    localStorage.data = JSON.stringify(d);  // 将从豆瓣API获取的数据转换为JSON格式的对象后，保存在本地缓存中
+                    console.log(localStorage.data);
+                    setData();
+                }
+            });
+        }
+        // 实现给myChart图表点击时，得到当前电影所对应的电影ID，再跳转到对应的url查看当前电影的详情
+        myChart.on("click", function(params) {
+            console.log(params);
+            if (params.name == "排序") {
+                setData();
+            }else if (params.componentSubType == "pictorialBar") {
+                window.open("https://movie.douban.com/subject/" + params.data.id + "?date=" + new Date().getTime())
+            }
+        })
+    </script>
+</body>
+</html>
